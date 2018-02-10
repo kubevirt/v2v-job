@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vocker-job-source
+data:
+  Fedora: |
+    FROM fedora:23
+    
+    MAINTAINER "Fabian Deutsch" <fabiand@redhat.com>
+    ENV container docker
+    
+    RUN echo Hello > /marker
+    
+    EXPOSE 1234
+    
+    CMD echo World >> /marker
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vocker-builder
+spec:
+  template:
+    metadata:
+      labels:
+        role: vocker-job
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: vocker
+        image: quay.io/fabiand/vocker
+        volumeMounts:
+        - name: vocker-source
+          mountPath: /source
+        - name: vocker-target
+          mountPath: /target
+      volumes:
+      - name: vocker-source
+        configMap:
+          name: vocker-job-source
+      - name: vocker-target
+        emptyDir: {}
+  backoffLimit: 4

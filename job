@@ -1,0 +1,20 @@
+#!/bin/bash
+
+SRCD=${1:-/v2v-src}
+DSTD=${2:-/v2v-dst}
+
+pwd
+
+for SRCTYPEFILE in $SRCD/*;
+do
+  SRCTYPE=$(basename $SRCTYPEFILE)
+  echo "Found source type: $SRCTYPE"
+  for SRC in $(cat $SRCTYPEFILE);
+  do
+    echo "  Converting source: $SRC"
+    virt-v2v -i "$SRCTYPE" "$SRC" -o local -oa sparse -of raw -os .
+    # generate disk and domxml
+
+    xsltproc toVMSpec.xsl *.xml
+  done
+done

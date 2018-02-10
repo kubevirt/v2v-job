@@ -3,6 +3,7 @@
     <xsl:output method="text"/>
     <xsl:template match="/">
 
+# Generate by v2v-job
 apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachine
 metadata:
