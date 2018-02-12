@@ -34,5 +34,6 @@ do
 
     DISKFILE=$(xmllint --xpath "string(//disk[@type='file']/source/@file)" $DOMXML)
     echo cp -v $DISKFILE $DSTD/disk.raw
+    echo kubectl apply -f $VMYAML
   done
 done

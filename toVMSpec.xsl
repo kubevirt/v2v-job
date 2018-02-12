@@ -19,26 +19,41 @@ spec:
     devices:
       disks:
 <xsl:for-each select="/domain/devices/disk">
-<!-- fixme need to check supported buses -->
-<!--xsl:if test="@device = 'disk'"-->
       - name: disk-<xsl:value-of select="position()"/>
-        volumeName: volume-<xsl:value-of select="position()"/>
 <xsl:text>
         </xsl:text><xsl:value-of select="@device"/>:
           bus: <xsl:value-of select="target/@bus"/>
-<!--/xsl:if-->
+<xsl:if test="source/@file">
+        volumeName: volume-<xsl:value-of select="position()"/>
+</xsl:if>
 </xsl:for-each>
 
   volumes:
 <xsl:for-each select="/domain/devices/disk">
-<!--xsl:if test="@device = 'disk'"-->
+<xsl:if test="source/@file">
     - name: volume-<xsl:value-of select="position()"/>
       persistentVolumeClaim:
         name: <xsl:value-of select="/domain/name"/>-disk-<xsl:value-of select="position()"/>
-<!--/xsl:if-->
+</xsl:if>
 </xsl:for-each>
 
 <xsl:text>&#10;</xsl:text><!-- newline -->
+<xsl:for-each select="/domain/devices/disk">
+<xsl:if test="source/@file">
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: <xsl:value-of select="/domain/name"/>-disk-<xsl:value-of select="position()"/>
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 8Gi
+</xsl:if>
+</xsl:for-each>
 	</xsl:template>
 </xsl:stylesheet>
 
