@@ -25,7 +25,7 @@ do
     VMYAML=${DOMXML%.xml}.yaml
 
     # Generate vm.yaml
-    xsltproc toVMSpec.xsl $DOMXML | tee $VMYAML
+    xsltproc ../data/toVMSpec.xsl $DOMXML | tee $VMYAML
 
     if [[ $(xmllint --xpath "count(//disk[@type='file']/source)" $DOMXML) -gt 1 ]];
     then
