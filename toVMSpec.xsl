@@ -5,35 +5,35 @@
 
 # Generate by v2v-job
 apiVersion: kubevirt.io/v1alpha1
-kind: VirtualMachine
+kind: OfflineVirtualMachine
 metadata:
   name: <xsl:value-of select="/domain/name"/>
 spec:
-  terminationGracePeriodSeconds: 0
-  domain:
-    cpu:
-      cores: <xsl:value-of select="/domain/vcpu"/>
-    resources:
-      requests:
-        memory: <xsl:value-of select="/domain/memory"/><xsl:value-of select="/domain/memory/@unit"/>
-    devices:
-      disks:
+  template:
+    terminationGracePeriodSeconds: 0
+    domain:
+      cpu:
+        cores: <xsl:value-of select="/domain/vcpu"/>
+      resources:
+        requests:
+          memory: <xsl:value-of select="/domain/memory"/><xsl:value-of select="/domain/memory/@unit"/>
+      devices:
+        disks:
 <xsl:for-each select="/domain/devices/disk">
-      - name: disk-<xsl:value-of select="position()"/>
+        - name: disk-<xsl:value-of select="position()"/>
 <xsl:text>
-        </xsl:text><xsl:value-of select="@device"/>:
-          bus: <xsl:value-of select="target/@bus"/>
+          </xsl:text><xsl:value-of select="@device"/>:
+            bus: <xsl:value-of select="target/@bus"/>
 <xsl:if test="source/@file">
-        volumeName: volume-<xsl:value-of select="position()"/>
+          volumeName: volume-<xsl:value-of select="position()"/>
 </xsl:if>
 </xsl:for-each>
-
-  volumes:
+    volumes:
 <xsl:for-each select="/domain/devices/disk">
 <xsl:if test="source/@file">
-    - name: volume-<xsl:value-of select="position()"/>
-      persistentVolumeClaim:
-        name: <xsl:value-of select="/domain/name"/>-disk-<xsl:value-of select="position()"/>
+      - name: volume-<xsl:value-of select="position()"/>
+        persistentVolumeClaim:
+          name: <xsl:value-of select="/domain/name"/>-disk-<xsl:value-of select="position()"/>
 </xsl:if>
 </xsl:for-each>
 

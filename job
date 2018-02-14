@@ -9,7 +9,7 @@ pwd
 
 die() { echo $@ >&2 ; exit 1 ; }
 
-for SRCTYPEFILE in $SRCD/*;
+for SRCTYPEFILE in $(ls $SRCD/*);
 do
   SRCTYPE=$(basename $SRCTYPEFILE)
   echo "Found source type: $SRCTYPE"
