@@ -1,39 +1,105 @@
 #!/bin/bash
 
-SRCD=${1:-/v2v-src}
-DSTD=${2:-/v2v-dst}
+echo "$@"
 
-mkdir -p $SRCD $DSTD
+DSTD=${1:-/v2v-dst}
+SRCTYPE=${2}
+SRC=${3}
 
-pwd
+BASEDIR=$(readlink -f $(dirname $(readlink -f $0))/..)
 
 die() { echo $@ >&2 ; exit 1 ; }
 
-for SRCTYPEFILE in $(ls $SRCD/*);
-do
-  SRCTYPE=$(basename $SRCTYPEFILE)
-  echo "Found source type: $SRCTYPE"
-  for SRC in $(cat $SRCTYPEFILE);
-  do
-    echo "  Converting source: $SRC"
-    WD="$(basename $SRC).d"
-    mkdir -p $WD
+main() {
+  [[ "$DSTD" ]] || die "No destination given"
+  [[ "$SRCTYPE" ]] || die "No source type given"
+  [[ "$SRC" ]] || die "No source given"
 
-    virt-v2v -i "$SRCTYPE" "$SRC" -o local -oa sparse -of raw -os $WD --machine-readable
-    # generate disk and domxml
-    DOMXML=$(ls $WD/*.xml)
-    VMYAML=${DOMXML%.xml}.yaml
+  local SRC="$(readlink -f $SRC)"
+  transformVM $SRCTYPE "$SRC"
+  createEntities
+}
 
-    # Generate vm.yaml
-    xsltproc ../data/toVMSpec.xsl $DOMXML | tee $VMYAML
+transformVM() {
+  local SRCTYPE=$1
+  local SRC="$2"
+  local WD="$(basename $SRC).d"
 
-    if [[ $(xmllint --xpath "count(//disk[@type='file']/source)" $DOMXML) -gt 1 ]];
-    then
-      die "Only one disk per VM is supported ATM"
-    fi
+  echo "  Converting source: $SRC"
+  mkdir -p $WD
 
-    DISKFILE=$(xmllint --xpath "string(//disk[@type='file']/source/@file)" $DOMXML)
-    echo cp -v $DISKFILE $DSTD/disk.raw
-    echo kubectl apply -f $VMYAML
+  ls -shal $SRC
+  virt-v2v -i "$SRCTYPE" "$SRC" -o local -oa sparse -of raw -os $WD --machine-readable
+  # generate disk and domxml
+  local DOMXML=$(ls $WD/*.xml)
+  local VMYAML=${DOMXML%.xml}.yaml
+
+  # Generate vm.yaml
+  xsltproc $BASEDIR/data/toVMSpec.xsl $DOMXML | tee $VMYAML
+
+  if [[ $(xmllint --xpath "count(//disk[@type='file']/source)" $DOMXML) -gt 1 ]];
+  then
+    die "Only one disk per VM is supported ATM"
+  fi
+
+  local DISKFILE=$(xmllint --xpath "string(//disk[@type='file']/source/@file)" $DOMXML)
+  ln_or_cp() { ln -v $1 $2 || cp -v $1 $2 ; }
+  ln_or_cp $DISKFILE $DSTD/disk.raw
+  ln_or_cp $VMYAML $DSTD/vm.yaml
+  ls -shal $DSTD
+
+  #rm -rf "$WD"
+}
+
+createEntities() {
+  local VMYAML=$DSTD/vm.yaml
+  local DISKFILE=$DSTD/disk.raw
+
+  local PVCNAME=$(egrep "^\s+name:" <$VMYAML | tail -n1 | cut -d":" -f2)
+
+  #
+  # Create the VM first, because it includes the PVC
+  #
+  echo kubectl create -f $VMYAML
+
+  sleep "4.2s"
+
+  #
+  # Now populate the PV
+  #
+  # kubectl create -f - 
+  cat <<EOY
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v2v-receiver-job-$PVCNAME
+  labels:
+    receiver-for: $PVCNAME
+spec:
+  restartPolicy: Never
+  hostname: $PVCNAME-receiver
+  subdomain: v2v
+  containers:
+  - name: v2v
+    image: quay.io/fabiand/v2v-pv-populator
+    volumeMounts:
+    - name: dst
+      mountPath: /dst
+  volumes:
+  - name: dst
+    persistentVolumeClaim:
+      claimName: $PVCNAME
+EOY
+
+  local N=10
+  while [[ $N -gt 0 ]]; do
+    echo "Trial $idf to send data"
+    nc $PVCNAME-receiver.v2v 54321 <$DISKFILE
+    sleep 10
+    N=$(( $N - 1 ))
   done
-done
+  [[ $N = 0 ]] && die "Failed to send data"
+
+}
+
+main

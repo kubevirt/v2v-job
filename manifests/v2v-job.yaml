@@ -11,23 +11,18 @@ spec:
     mountPath: /v2v-src
   - name: target
     mountPath: /v2v-dst
+  - name: kvm
+    mountPath: /dev/kvm
   volumes:
-  - name: source
-    configMap:
-      name: v2v-job-source
   - name: target
     emptyDir: {}
+  - name: kvm
+    hostPath:
+      path: /dev/kvm
+      type: CharDevice
 #   persistentVolumeClaim:
 #   claimName: vocker-images
 # - name: cache # would be an improvement
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: v2v-job-source
-data:
-  ova:
-  libvirt:
 ---
 apiVersion: batch/v1
 kind: Job
@@ -43,4 +38,9 @@ spec:
       containers:
       - name: v2v
         image: quay.io/fabiand/v2v-job
+        securityContext:
+          privileged: true
+        env:
+        - name: V2V_SRC
+          value: "disk /v2v-src/disk.raw"
   backoffLimit: 4
