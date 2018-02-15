@@ -9,13 +9,20 @@ spec:
       containers:
       - name: v2v
         image: quay.io/fabiand/v2v-job
-        args: ["disk", "example"]
+        args: ["/v2v-dst", "disk", "example"]
+        env:
+        - name: DEBUG
+          value: 1
         securityContext:
           privileged: true
-#        volumeMounts:
+        volumeMounts:
+        - name: dst
+          mountPath: /v2v-dst
 #        - name: kvm
 #          mountPath: /dev/kvm
-#      volumes:
+      volumes:
+      - name: dst
+        emptyDir: {}
 #      - name: kvm
 #        hostPath:
 #          path: /dev/kvm
