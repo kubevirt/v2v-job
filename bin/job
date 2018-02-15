@@ -62,7 +62,7 @@ createEntities() {
   local VMYAML=$DSTD/vm.yaml
   local DISKFILE=$DSTD/disk.raw
 
-  local PVCNAME=$(egrep "^\s+name:" <$VMYAML | tail -n1 | cut -d":" -f2 | sed "s/^\s+//")
+  local PVCNAME=$(egrep "^\s+name:" <$VMYAML | tail -n1 | cut -d":" -f2 | sed "s/^\s\+//")
 
   #
   # Create the VM first, because it includes the PVC
