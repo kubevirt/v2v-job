@@ -1,8 +1,9 @@
 run:
 	bash -ex bin/job /var/tmp/dst disk ~/tmp/test-src/disk.raw
 
-container-build:
-	make -C images
+container-build: images/v2v-job/Dockerfile images/v2v-pv-populator/Dockerfile
+	docker build -t quay.io/fabiand/v2v-job - < images/v2v-job/Dockerfile
+	docker build -t quay.io/fabiand/v2v-pv-populator - < images/v2v-pv-populator/Dockerfile
 
 container-run: container-build
 	docker run \
