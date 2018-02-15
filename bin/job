@@ -79,13 +79,11 @@ createEntities() {
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v2v-receiver-job-$PVCNAME
+  name: v2v-receiver-$PVCNAME
   labels:
     receiver-for: $PVCNAME
 spec:
   restartPolicy: Never
-  hostname: $PVCNAME-receiver
-  subdomain: v2v
   containers:
   - name: v2v
     image: quay.io/fabiand/v2v-pv-populator
@@ -97,11 +95,13 @@ spec:
     persistentVolumeClaim:
       claimName: $PVCNAME
 EOY
+  kubectl expose pod v2v-receiver-$PVCNAME --port=54321 --protocol=TCP \
+    --name=v2v-receiver-$PVCNAME
 
   local N=10
   while [[ $N -gt 0 ]]; do
     echo "Trial $idf to send data"
-    nc $PVCNAME-receiver.v2v 54321 <$DISKFILE
+    nc v2v-receiver-$PVCNAME 54321 <$DISKFILE
     sleep 10
     N=$(( $N - 1 ))
   done
