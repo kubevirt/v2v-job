@@ -95,9 +95,12 @@ spec:
     persistentVolumeClaim:
       claimName: $PVCNAME
 EOY
+  sleep "4.2s"
+  # Expose the receiver as a service to enumerate it
   kubectl expose pod v2v-receiver-$PVCNAME --port=54321 --protocol=TCP \
     --name=v2v-receiver-$PVCNAME
 
+  # Wait for the pod to come up and try to send the image
   local N=10
   while [[ $N -gt 0 ]]; do
     echo "Trial $idf to send data"

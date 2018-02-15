@@ -9,17 +9,15 @@ spec:
       containers:
       - name: v2v
         image: quay.io/fabiand/v2v-job
-        env:
-        - name: V2V_SRC
-          value: "disk /v2v-src/disk.raw"
+        args: ["disk", "example"]
         securityContext:
           privileged: true
-        volumeMounts:
-        - name: kvm
-          mountPath: /dev/kvm
-      volumes:
-      - name: kvm
-        hostPath:
-          path: /dev/kvm
-          type: CharDevice
+#        volumeMounts:
+#        - name: kvm
+#          mountPath: /dev/kvm
+#      volumes:
+#      - name: kvm
+#        hostPath:
+#          path: /dev/kvm
+#          type: CharDevice
   backoffLimit: 3
