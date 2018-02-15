@@ -1,46 +1,25 @@
-apiVersion: settings.k8s.io/v1alpha1
-kind: PodPreset
-metadata:
-  name: v2v-job-mounts
-spec:
-  selector:
-    matchLabels:
-      role: v2v-job
-  volumeMounts:
-  - name: source
-    mountPath: /v2v-src
-  - name: target
-    mountPath: /v2v-dst
-  - name: kvm
-    mountPath: /dev/kvm
-  volumes:
-  - name: target
-    emptyDir: {}
-  - name: kvm
-    hostPath:
-      path: /dev/kvm
-      type: CharDevice
-#   persistentVolumeClaim:
-#   claimName: vocker-images
-# - name: cache # would be an improvement
----
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: v2v-job
 spec:
   template:
-    metadata:
-      labels:
-        role: v2v-job
     spec:
       restartPolicy: Never
       containers:
       - name: v2v
         image: quay.io/fabiand/v2v-job
-        securityContext:
-          privileged: true
         env:
         - name: V2V_SRC
           value: "disk /v2v-src/disk.raw"
-  backoffLimit: 4
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: kvm
+          mountPath: /dev/kvm
+      volumes:
+      - name: kvm
+        hostPath:
+          path: /dev/kvm
+          type: CharDevice
+  backoffLimit: 3
