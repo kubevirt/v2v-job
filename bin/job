@@ -69,15 +69,14 @@ createEntities() {
   #
   # Create the VM first, because it includes the PVC
   #
-  echo kubectl create -f $VMYAML
+  kubectl create -f $VMYAML
 
   sleep "4.2s"
 
   #
   # Now populate the PV
   #
-  # kubectl create -f - 
-  cat <<EOY
+  kubectl create -f - <<<EOY
 apiVersion: v1
 kind: Pod
 metadata:
