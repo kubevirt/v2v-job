@@ -26,53 +26,11 @@ main() {
   local SRC="$(readlink -f $SRC)"
   transformVM $SRCTYPE "$SRC"
   createEntities
+  finalize
 }
 
-transformVM() {
-  local SRCTYPE=$1
-  local SRC="$2"
-  local WD="$(basename $SRC).d"
-
-  echo "  Converting source: $SRC"
-  mkdir -p $WD
-
-  ls -shal $SRC
-  local NAME=$(basename $SRC | sed "s/[^a-zA-Z0-9-]/-/g" | tr "[:upper:]" "[:lower:]")
-  virt-v2v -i "$SRCTYPE" "$SRC" -o local -on $NAME -oa sparse -of raw -os $WD --machine-readable
-  # generate disk and domxml
-  local DOMXML=$(ls $WD/*.xml)
-  local VMYAML=${DOMXML%.xml}.yaml
-
-  # Generate vm.yaml
-  xsltproc $BASEDIR/data/toVMSpec.xsl $DOMXML | tee $VMYAML
-
-  if [[ $(xmllint --xpath "count(//disk[@type='file']/source)" $DOMXML) -gt 1 ]];
-  then
-    die "Only one disk per VM is supported ATM"
-  fi
-
-  local DISKFILE=$(xmllint --xpath "string(//disk[@type='file']/source/@file)" $DOMXML)
-  ln_or_cp() { ln -v $1 $2 || cp -v $1 $2 ; }
-  ln_or_cp $DISKFILE $DSTD/disk.raw
-  ln_or_cp $VMYAML $DSTD/vm.yaml
-  ls -shal $DSTD
-
-  #rm -rf "$WD"
-}
-
-createEntities() {
-  local VMYAML=$DSTD/vm.yaml
-  local DISKFILE=$DSTD/disk.raw
-
-  local PVCNAME=$(egrep "^\s+name:" <$VMYAML | tail -n1 | cut -d":" -f2 | sed "s/^\s\+//")
-
-  #
-  # Create the VM first, because it includes the PVC
-  #
-  kubectl create -f $VMYAML
-
-  sleep "4.2s"
-
+_prepDst() {
+  local PVCNAME=$1
   #
   # Now populate the PV
   #
@@ -118,13 +76,69 @@ EOY
   # Wait for the pod to come up and try to send the image
   local N=30
   while [[ $N -gt 0 ]]; do
-    echo "Trial $N to send data"
-    nc v2v-receiver-$PVCNAME 54321 <$DISKFILE && ( echo "Data transmitted!" ; break ; )
+    echo "Trial $N to mount destination"
+    wdfs http://v2v-receiver-$PVCNAME:54321 $DSTD && ( echo "Mounted!" ; break ; )
     sleep 10
     N=$(( $N - 1 ))
   done
-  [[ $N = 0 ]] && die "Failed to send data"
+  [[ $N = 0 ]] && die "Failed to mount dst"
+}
+
+_cleanDst() {
+  umount $DSTD
   kubectl delete -f receiver.yaml
+}
+
+transformVM() {
+  local SRCTYPE=$1
+  local SRC="$2"
+
+  echo "  Converting source: $SRC"
+
+  ls -shal $SRC
+
+  local NAME=$(basename $SRC | sed "s/[^a-zA-Z0-9-]/-/g" | tr "[:upper:]" "[:lower:]")
+
+  # Setup destination for streaming
+  _prepDst $NAME
+
+
+  #
+  # Convert
+  virt-v2v -i "$SRCTYPE" "$SRC" -o local -on $NAME -oa sparse -of raw -os $DSTD --machine-readable
+
+
+  #
+  # Sanity check
+  if [[ $(xmllint --xpath "count(//disk[@type='file']/source)" $DOMXML) -gt 1 ]];
+  then
+    die "Only one disk per VM is supported ATM"
+  fi
+
+
+  #
+  # Create YAML
+  local DOMXML=$(ls $DSTD/*.xml)
+  local VMYAML=${DOMXML%.xml}.yaml
+  xsltproc $BASEDIR/data/toVMSpec.xsl $DOMXML | tee $VMYAML
+
+
+  #
+  # Relocate to final destination
+  local DISKFILE=$(xmllint --xpath "string(//disk[@type='file']/source/@file)" $DOMXML)
+  mv -v $DISKFILE $DSTD/disk.raw
+  mv -v $VMYAML $DSTD/vm.yaml
+
+  ls -shal $DSTD
+}
+
+createEntities() {
+  local VMYAML=$DSTD/vm.yaml
+  kubectl create -f $VMYAML
+}
+
+finalize() {
+  _cleanDst
 }
 
 main
