@@ -76,7 +76,7 @@ createEntities() {
   #
   # Now populate the PV
   #
-  kubectl create -f - <<<EOY
+  tee receiver.yaml <<<EOY
 apiVersion: v1
 kind: Pod
 metadata:
@@ -96,7 +96,10 @@ spec:
     persistentVolumeClaim:
       claimName: $PVCNAME
 EOY
+  kubectl create -f receiver.yaml
+
   sleep "4.2s"
+
   # Expose the receiver as a service to enumerate it
   kubectl expose pod v2v-receiver-$PVCNAME --port=54321 --protocol=TCP \
     --name=v2v-receiver-$PVCNAME
