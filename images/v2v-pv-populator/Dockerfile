@@ -1,5 +1,5 @@
 FROM fedora:26
 
-RUN dnf install -y nmap-ncat
+RUN dnf install -y chezdav
 
-ENTRYPOINT /usr/bin/nc -v --listen --wait 60 54321 | dd conv=sparse > /dst/disk.raw
+ENTRYPOINT chezdav -vv -P /dst -p 54321
