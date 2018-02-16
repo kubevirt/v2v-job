@@ -30,10 +30,28 @@ main() {
 }
 
 _prepDst() {
-  local PVCNAME=$1
+  # FIXME Assumes that there is just one disk
+  local PVCNAME=${1}-disk
+  local PVCSIZE=${2:-8Gi}
+
   #
   # Now populate the PV
   #
+  tee pvc.yaml <<EOY
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${PVCNAME}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: ${PVCSIZE}
+EOY
+  kubectl create -f pvc.yaml
+
   tee receiver.yaml <<EOY
 apiVersion: v1
 kind: Pod
@@ -99,8 +117,9 @@ transformVM() {
 
   local NAME=$(basename $SRC | sed "s/[^a-zA-Z0-9-]/-/g" | tr "[:upper:]" "[:lower:]")
 
-  # Setup destination for streaming
-  _prepDst $NAME
+  #
+  # Setup destination pvc and receiver for streaming
+  _prepDst ${NAME}-disk
 
 
   #

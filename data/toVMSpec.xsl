@@ -38,9 +38,10 @@ spec:
 </xsl:for-each>
 
 <xsl:text>&#10;</xsl:text><!-- newline -->
-<xsl:for-each select="/domain/devices/disk">
+<!--xsl:for-each select="/domain/devices/disk">
 <xsl:if test="source/@file">
----
+# FIXME we create the PVC now in the job because we need it before the VM
+
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
@@ -53,7 +54,7 @@ spec:
     requests:
       storage: 8Gi
 </xsl:if>
-</xsl:for-each>
+</xsl:for-each-->
 	</xsl:template>
 </xsl:stylesheet>
 
