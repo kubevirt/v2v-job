@@ -105,9 +105,9 @@ EOY
     --name=v2v-receiver-$PVCNAME
 
   # Wait for the pod to come up and try to send the image
-  local N=10
+  local N=30
   while [[ $N -gt 0 ]]; do
-    echo "Trial $idf to send data"
+    echo "Trial $N to send data"
     nc v2v-receiver-$PVCNAME 54321 <$DISKFILE
     sleep 10
     N=$(( $N - 1 ))
