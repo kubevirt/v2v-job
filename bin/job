@@ -95,14 +95,25 @@ spec:
   - name: dst
     persistentVolumeClaim:
       claimName: $PVCNAME
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    receiver-for: $PVCNAME
+  name: v2v-receiver-$PVCNAME
+spec:
+  ports:
+  - port: 54321
+    protocol: TCP
+    targetPort: 54321
+  selector:
+    receiver-for: $PVCNAME
+  type: ClusterIP
 EOY
   kubectl create -f receiver.yaml
 
   sleep "4.2s"
-
-  # Expose the receiver as a service to enumerate it
-  kubectl expose pod v2v-receiver-$PVCNAME --port=54321 --protocol=TCP \
-    --name=v2v-receiver-$PVCNAME
 
   # Wait for the pod to come up and try to send the image
   local N=30
@@ -113,6 +124,7 @@ EOY
     N=$(( $N - 1 ))
   done
   [[ $N = 0 ]] && die "Failed to send data"
+  kubectl delete -f receiver.yaml
 
 }
 
