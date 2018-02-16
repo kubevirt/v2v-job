@@ -76,7 +76,7 @@ createEntities() {
   #
   # Now populate the PV
   #
-  tee receiver.yaml <<<EOY
+  tee receiver.yaml <<EOY
 apiVersion: v1
 kind: Pod
 metadata:
