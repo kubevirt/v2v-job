@@ -31,7 +31,7 @@ main() {
 
 _prepDst() {
   # FIXME Assumes that there is just one disk
-  local PVCNAME=${1}-disk
+  local PVCNAME=${1}
   local PVCSIZE=${2:-8Gi}
 
   #
