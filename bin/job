@@ -7,6 +7,7 @@ echo "$@"
 DSTD=${1:-/v2v-dst}
 SRCTYPE=${2}
 SRC=${3}
+SRCURI=${3}
 
 BASEDIR=$(readlink -f $(dirname $(readlink -f $0))/..)
 
@@ -23,27 +24,36 @@ main() {
     SRC=Fedora-Cloud-Base-27-1.6.x86_64.raw
   fi
 
-  local SRC="$(readlink -f $SRC)"
-  transformVM $SRCTYPE "$SRC"
+  [[ "$SRCTYPE" = "disk" ]] && SRC="$(readlink -f $SRC)"
+  [[ "$SRCTYPE" = "libvirt" -a -z "$SRCURI" ]] || die "Please provide a libvirt uri"
+
+  transformVM "$SRCTYPE" "$SRC" "$SRCURI"
   createEntities
 }
 
 transformVM() {
   local SRCTYPE=$1
   local SRC="$2"
+  local SRCURI="$3"
   local WD="$(basename $SRC).d"
 
   echo "  Converting source: $SRC"
   mkdir -p $WD
 
   ls -shal $SRC
+
   local NAME=$(basename $SRC | sed "s/[^a-zA-Z0-9-]/-/g" | tr "[:upper:]" "[:lower:]")
-  virt-v2v -i "$SRCTYPE" "$SRC" -o local -on $NAME -oa sparse -of raw -os $WD --machine-readable
+
+  #
   # generate disk and domxml
+  [[ "$SRCURI" ]] && SRCURI="-ic $SRCURI"
+  virt-v2v -i "$SRCTYPE" $SRCURI "$SRC" -o local -on $NAME -oa sparse -of raw -os $WD --machine-readable
+
   local DOMXML=$(ls $WD/*.xml)
   local VMYAML=${DOMXML%.xml}.yaml
 
-  # Generate vm.yaml
+  #
+  # Convert domxml to vm.yaml
   xsltproc $BASEDIR/data/toVMSpec.xsl $DOMXML | tee $VMYAML
 
   if [[ $(xmllint --xpath "count(//disk[@type='file']/source)" $DOMXML) -gt 1 ]];
@@ -52,12 +62,13 @@ transformVM() {
   fi
 
   local DISKFILE=$(xmllint --xpath "string(//disk[@type='file']/source/@file)" $DOMXML)
-  ln_or_cp() { ln -v $1 $2 || cp -v $1 $2 ; }
-  ln_or_cp $DISKFILE $DSTD/disk.raw
-  ln_or_cp $VMYAML $DSTD/vm.yaml
-  ls -shal $DSTD
 
-  #rm -rf "$WD"
+  #
+  # Copy to final destination
+  cp -v $DISKFILE $DSTD/disk.raw
+  cp -v $VMYAML $DSTD/vm.yaml
+
+  ls -shal $DSTD
 }
 
 createEntities() {
