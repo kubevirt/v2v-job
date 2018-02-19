@@ -9,10 +9,27 @@ There are some constraints on the VM:
 
 # Example
 
+> **NOTE:** Even if the `oc` tool is used, the example creates the job on 
+> Kubernetes. OpenShift support will follow.
+
 By default an example Fedora image will be converted:
 
 ```bash
-$ kubectl create -f manifests/v2v-job.yaml
+$ oc process --local -f manifests/template.yaml \
+    -p SOURCE_TYPE=libvirt \
+    -p SOURCE_URI=qemu+tcp://192.168.1.1/system \
+    -p SOURCE_NAME=rhel7 \
+  | kubectl create -f -
+$ kubectl get jobs
+$ kubectl get pods
+```
+
+Alternatively the job manifest can be used directly, but you'll need to modify
+it in order to adapt it to your environment:
+
+```bash
+# Edit manifests/job.yaml
+$ kubectl create -f manifests/job.yaml
 $ kubectl logs -f v2v-kw443
 ```
 

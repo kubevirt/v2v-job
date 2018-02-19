@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: v2v-job-template
+  annotations:
+    openshift.io/display-name: "KubeVirt v2v VM Import"
+    description: >-
+      A template to trigger a v2v job in order to import a VM from a remote
+      source (like a libvirt instance of a file-system image) into KubeVirt.
+parameters:
+- name: SOURCE_TYPE
+  description: "The VM source for this job (libvirt) see man virt-v2v"
+  value: "libvirt"
+- name: SOURCE_URI
+  description: "The URI to connect to the remote libvirt instance"
+  value: "vpx://vcenter.example.com/Datacenter/esxi"
+- name: SOURCE_NAME
+  decsription: "The name of the VM to import"
+  value: "my-vm"
+objects:
+- kind: Job
+  metadata:
+    name: v2v
+  spec:
+    backoffLimit: 1
+    template:
+      spec:
+        restartPolicy: Never
+        containers:
+        - name: v2v
+          image: quay.io/fabiand/v2v-job:v0.2.0
+          args: ["/v2v-dst",
+                 "${SOURCE_TYPE}",
+                 "${SOURCE_NAME}",
+                 "${SOURCE_URI}"]
+          env:
+          - name: "DEBUG"
+            value: "1"
+          securityContext:
+            privileged: true
+          volumeMounts:
+          - name: dst
+            mountPath: /v2v-dst
+          - name: kvm
+            mountPath: /dev/kvm
+        volumes:
+        - name: dst
+          emptyDir: {}
+        - name: kvm
+          hostPath:
+            path: /dev/kvm
