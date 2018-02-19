@@ -119,11 +119,11 @@ EOY
   local N=30
   while [[ $N -gt 0 ]]; do
     echo "Trial $N to send data"
-    nc v2v-receiver-$PVCNAME 54321 <$DISKFILE && ( echo "Data transmitted!" ; break ; )
+    nc v2v-receiver-$PVCNAME 54321 <$DISKFILE && break
     sleep 10
     N=$(( $N - 1 ))
   done
-  [[ $N = 0 ]] && die "Failed to send data"
+  [[ $N = 0 ]] && die "Failed to send data" || echo "Data transmitted!"
   kubectl delete -f receiver.yaml
 }
 
