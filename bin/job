@@ -31,7 +31,7 @@ main() {
   fi
 
   [[ "$SRCTYPE" = "disk" ]] && SRC="$(readlink -f $SRC)"
-  [[ "$SRCTYPE" = "libvirt" && -n "$SRCURI" ]] || die "Please provide a libvirt uri"
+  [[ "$SRCTYPE" = "libvirt" && -z "$SRCURI" ]] && die "Please provide a libvirt uri"
 
   transformVM "$SRCTYPE" "$SRC" "$SRCURI"
   createEntities

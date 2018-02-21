@@ -9,19 +9,17 @@ There are some constraints on the VM:
 
 # Example
 
-> **NOTE:** Even if the `oc` tool is used, the example creates the job on 
-> Kubernetes. OpenShift support will follow.
-
 By default an example Fedora image will be converted:
 
 ```bash
+$ oc adm policy add-scc-to-user privileged system:serviceaccount:myproject:kubevirt-privileged
 $ oc process --local -f manifests/template.yaml \
     -p SOURCE_TYPE=libvirt \
     -p SOURCE_URI=qemu+tcp://192.168.1.1/system \
     -p SOURCE_NAME=rhel7 \
-  | kubectl create -f -
-$ kubectl get jobs
-$ kubectl get pods
+  | oc create -f -
+$ oc get jobs
+$ oc get pods
 ```
 
 Alternatively the job manifest can be used directly, but you'll need to modify
