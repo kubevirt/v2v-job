@@ -18,17 +18,25 @@ parameters:
   decsription: "The name of the VM to import"
   value: "my-vm"
 objects:
+- apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: kubevirt-privileged
+    namespace: default
 - kind: Job
+  apiVersion: batch/v1 
   metadata:
     name: v2v
+    namespace: default
   spec:
     backoffLimit: 1
     template:
       spec:
+        serviceAccountName: kubevirt-privileged
         restartPolicy: Never
         containers:
         - name: v2v
-          image: quay.io/fabiand/v2v-job:v0.2.0
+          image: quay.io/fabiand/v2v-job
           args: ["/v2v-dst",
                  "${SOURCE_TYPE}",
                  "${SOURCE_NAME}",
@@ -49,3 +57,4 @@ objects:
         - name: kvm
           hostPath:
             path: /dev/kvm
+
