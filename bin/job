@@ -7,7 +7,7 @@ echo "$@"
 DSTD=${1:-/v2v-dst}
 SRCTYPE=${2}
 SRC=${3}
-SRCURI=${3}
+SRCURI=${4}
 
 BASEDIR=$(readlink -f $(dirname $(readlink -f $0))/..)
 
