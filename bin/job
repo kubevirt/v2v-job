@@ -25,6 +25,10 @@ main() {
     xz -d Fedora-Cloud-Base-27-1.6.x86_64.raw.xz
     SRC=Fedora-Cloud-Base-27-1.6.x86_64.raw
   fi
+  if [[ "$SRC" =~ ^http ]]; then
+    curl -LO "$SRC"
+    SRC=$(basename "$SRC")
+  fi
 
   [[ "$SRCTYPE" = "disk" ]] && SRC="$(readlink -f $SRC)"
   [[ "$SRCTYPE" = "libvirt" && -n "$SRCURI" ]] || die "Please provide a libvirt uri"

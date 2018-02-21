@@ -4,19 +4,23 @@ metadata:
   name: v2v-job-template
   annotations:
     openshift.io/display-name: "KubeVirt v2v VM Import"
-    description: >-
+    description: |
       A template to trigger a v2v job in order to import a VM from a remote
       source (like a libvirt instance of a file-system image) into KubeVirt.
+      Example
+      libvirt vpx://vcenter.example.com/Datacenter/esxi
+      ova http://example.com/my.ova
+
 parameters:
 - name: SOURCE_TYPE
   description: "The VM source for this job (libvirt) see man virt-v2v"
-  value: "libvirt"
-- name: SOURCE_URI
-  description: "The URI to connect to the remote libvirt instance"
-  value: "vpx://vcenter.example.com/Datacenter/esxi"
+  value: "ova"
 - name: SOURCE_NAME
-  decsription: "The name of the VM to import"
-  value: "my-vm"
+  decsription: "The name of the VM to import (name or URL)"
+  value: "http://192.168.42.1/my.ova"
+- name: SOURCE_URI
+  description: "(Optional) The URI to connect to the remote libvirt instance"
+
 objects:
 - apiVersion: v1
   kind: ServiceAccount
