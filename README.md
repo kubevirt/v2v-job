@@ -9,17 +9,27 @@ There are some constraints on the VM:
 
 # Example
 
-By default an example Fedora image will be converted:
+## OpenShift (WIP)
 
 ```bash
 $ oc adm policy add-scc-to-user privileged system:serviceaccount:myproject:kubevirt-privileged
 $ oc process --local -f manifests/template.yaml \
-    -p SOURCE_TYPE=libvirt \
-    -p SOURCE_URI=qemu+tcp://192.168.1.1/system \
-    -p SOURCE_NAME=rhel7 \
+    -p SOURCE_TYPE=ova \
+    -p SOURCE_NAME=http://192.168.42.1/my.ova \
   | oc create -f -
 $ oc get jobs
 $ oc get pods
+```
+
+## Kubernetes
+
+```bash
+$ oc process --local -f manifests/template.yaml \
+    -p SOURCE_TYPE=ova \
+    -p SOURCE_NAME=http://192.168.42.1/my.ova \
+  | kubectl create -f -
+$ kubectl get jobs
+$ kubectl get pods
 ```
 
 Alternatively the job manifest can be used directly, but you'll need to modify

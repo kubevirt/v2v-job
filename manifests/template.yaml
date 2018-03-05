@@ -18,7 +18,7 @@ parameters:
 - name: SOURCE_NAME
   decsription: "The name of the VM to import (name or URL)"
   value: "http://192.168.42.1/my.ova"
-- name: SOURCE_URI
+- name: SOURCE_LIBVIRT_URI
   description: "(Optional) The URI to connect to the remote libvirt instance"
 
 objects:
@@ -44,7 +44,7 @@ objects:
           args: ["/v2v-dst",
                  "${SOURCE_TYPE}",
                  "${SOURCE_NAME}",
-                 "${SOURCE_URI}"]
+                 "${SOURCE_LIBVIRT_URI}"]
           env:
           - name: "DEBUG"
             value: "1"
