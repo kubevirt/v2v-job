@@ -9,7 +9,7 @@ echo "$@"
 DSTD=${1:-/v2v-dst}
 SRCTYPE=${2}
 SRC=${3}
-SRCURI=${4}
+LIBVIRTSRCURI=${4}
 
 BASEDIR=$(readlink -f $(dirname $(readlink -f $0))/..)
 
@@ -31,16 +31,16 @@ main() {
   fi
 
   [[ "$SRCTYPE" = "disk" ]] && SRC="$(readlink -f $SRC)"
-  [[ "$SRCTYPE" = "libvirt" && -z "$SRCURI" ]] && die "Please provide a libvirt uri"
+  [[ "$SRCTYPE" = "libvirt" && -z "$LIBVIRTSRCURI" ]] && die "Please provide a libvirt uri"
 
-  transformVM "$SRCTYPE" "$SRC" "$SRCURI"
+  transformVM "$SRCTYPE" "$SRC" "$LIBVIRTSRCURI"
   createEntities
 }
 
 transformVM() {
   local SRCTYPE=$1
   local SRC="$2"
-  local SRCURI="$3"
+  local LIBVIRTSRCURI="$3"
   local WD="$(basename $SRC).d"
 
   echo "  Converting source: $SRC"
@@ -52,8 +52,8 @@ transformVM() {
 
   #
   # generate disk and domxml
-  [[ "$SRCURI" ]] && SRCURI="-ic $SRCURI"
-  virt-v2v -i "$SRCTYPE" $SRCURI "$SRC" -o local -on $NAME -oa sparse -of raw -os $WD --machine-readable
+  [[ "$LIBVIRTSRCURI" ]] && LIBVIRTSRCURI="-ic $LIBVIRTSRCURI"
+  virt-v2v -i "$SRCTYPE" $LIBVIRTSRCURI "$SRC" -o local -on $NAME -oa sparse -of raw -os $WD --machine-readable
 
   local DOMXML=$(ls $WD/*.xml)
   local VMYAML=${DOMXML%.xml}.yaml
