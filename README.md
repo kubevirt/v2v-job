@@ -12,7 +12,7 @@ There are some constraints on the VM:
 ## OpenShift (WIP)
 
 ```bash
-$ oc adm policy add-scc-to-user privileged system:serviceaccount:myproject:kubevirt-privileged
+$ oc adm policy add-scc-to-user privileged system:serviceaccount:default:kubevirt-privileged
 $ oc process --local -f manifests/template.yaml \
     -p SOURCE_TYPE=ova \
     -p SOURCE_NAME=http://192.168.42.1/my.ova \
@@ -39,6 +39,13 @@ it in order to adapt it to your environment:
 # Edit manifests/job.yaml
 $ kubectl create -f manifests/job.yaml
 $ kubectl logs -f v2v-kw443
+```
+
+## Storage
+
+When using [ceph-cinder-demo](https://github.com/rmohr/ceph-cinder-demo) we need to run a command to set default flag for storageClass
+```bash
+$ oc.sh patch storageclass standalone-cinder -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 ```
 
 # Design

@@ -9,7 +9,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: v2v
-        image: quay.io/fabiand/v2v-job
+        image: quay.io/pkliczewski/v2v-job
         args: ["/v2v-dst", "disk", "example"]
         env:
         - name: "DEBUG"
@@ -17,13 +17,41 @@ spec:
         securityContext:
           privileged: true
         volumeMounts:
-        - name: dst
+        - name: volume-1
           mountPath: /v2v-dst
+        - name: volume-2
+          mountPath: /var/tmp
         - name: kvm
           mountPath: /dev/kvm
       volumes:
-      - name: dst
-        emptyDir: {}
       - name: kvm
         hostPath:
           path: /dev/kvm
+      - name: volume-1
+        persistentVolumeClaim:
+          claimName: $PVCNAME
+      - name: volume-2
+        persistentVolumeClaim:
+          claimName: temp
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: $PVCNAME
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: $size
+---
+- kind: PersistentVolumeClaim
+  apiVersion: v1
+  metadata:
+    name: temp
+  spec:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 1100Mi

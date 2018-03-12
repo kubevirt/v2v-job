@@ -9,7 +9,8 @@ echo "$@"
 DSTD=${1:-/v2v-dst}
 SRCTYPE=${2}
 SRC=${3}
-LIBVIRTSRCURI=${4}
+SRCURI=${4}
+SRCPASS=$(echo $SOURCE_PASSWORD)
 
 BASEDIR=$(readlink -f $(dirname $(readlink -f $0))/..)
 
@@ -31,117 +32,83 @@ main() {
   fi
 
   [[ "$SRCTYPE" = "disk" ]] && SRC="$(readlink -f $SRC)"
-  [[ "$SRCTYPE" = "libvirt" && -z "$LIBVIRTSRCURI" ]] && die "Please provide a libvirt uri"
+  [[ "$SRCTYPE" = "libvirt" && -z "$SRCURI" ]] && die "Please provide valid uri"
+  [[ "$SRCTYPE" = "libvirt" && "$SRC" =~ ^vpx && -z "$SRCPASS" ]] && die "Please provide password"
 
-  transformVM "$SRCTYPE" "$SRC" "$LIBVIRTSRCURI"
-  createEntities
+  transformVM "$SRCTYPE" "$SRC" "$SRCURI" "$SRCPASS"
 }
 
 transformVM() {
   local SRCTYPE=$1
   local SRC="$2"
-  local LIBVIRTSRCURI="$3"
+  local SRCURI="$3"
+  local SRCPASS="$4"
   local WD="$(basename $SRC).d"
 
   echo "  Converting source: $SRC"
   mkdir -p $WD
 
-  ls -shal $SRC
+  ls -shal $WD
 
   local NAME=$(basename $SRC | sed "s/[^a-zA-Z0-9-]/-/g" | tr "[:upper:]" "[:lower:]")
 
   #
   # generate disk and domxml
-  [[ "$LIBVIRTSRCURI" ]] && LIBVIRTSRCURI="-ic $LIBVIRTSRCURI"
-  virt-v2v -i "$SRCTYPE" $LIBVIRTSRCURI "$SRC" -o local -on $NAME -oa sparse -of raw -os $WD --machine-readable
-
-  local DOMXML=$(ls $WD/*.xml)
-  local VMYAML=${DOMXML%.xml}.yaml
-
-  #
-  # Convert domxml to vm.yaml
-  xsltproc $BASEDIR/data/toVMSpec.xsl $DOMXML | tee $VMYAML
-
-  if [[ $(xmllint --xpath "count(//disk[@type='file']/source)" $DOMXML) -gt 1 ]];
-  then
-    die "Only one disk per VM is supported ATM"
+  [[ "$SRCURI" ]] && SRCURI="-ic $SRCURI"
+  if [[ "SRCPASS" ]] ; then
+    echo $SRCPASS > pass
+    SRCPASS="--password-file pass"
+  fi
+  if [[ "$DEBUG" ]] ; then
+    DEBUG_OPTS="-v -x"
+  fi
+  virt-v2v $DEBUG_OPTS -i "$SRCTYPE" $SRCPASS $SRCURI "$SRC" -o local -on $NAME -oa sparse -of raw -os $DSTD --machine-readable
+  if [[ "SRCPASS" ]] ; then
+    rm -f pass
   fi
 
-  local DISKFILE=$(xmllint --xpath "string(//disk[@type='file']/source/@file)" $DOMXML)
+  local DOMXML=$(ls $DSTD/*.xml)
+  local VMYAML=${DOMXML%.xml}.yaml
 
-  #
-  # Copy to final destination
-  cp -v $DISKFILE $DSTD/disk.raw
-  cp -v $VMYAML $DSTD/vm.yaml
+  # we support only one disk, it needs to be aligned with DNS-1123
+  PVCNAME=$(echo $SRC-disk-1 | sed -r 's/[_.]+/-/g')
+  VMNAME=$(echo $SRC | sed -r 's/[_.]+/-/g')
 
-  ls -shal $DSTD
-}
+  # get resources from vm xml
+  CORES=$(xmllint --xpath "/domain/vcpu/text()" $DOMXML)
+  MEMORY=$(xmllint --xpath "/domain/memory/text()" $DOMXML)
+  UNIT=$(xmllint --xpath "string(/domain/memory/@unit)" $DOMXML)
+  BUS=$(xmllint --xpath "string(/domain/devices/disk/target/@bus)" $DOMXML)
 
-createEntities() {
-  local VMYAML=$DSTD/vm.yaml
-  local DISKFILE=$DSTD/disk.raw
-
-  local PVCNAME=$(egrep "^\s+name:" <$VMYAML | tail -n1 | cut -d":" -f2 | sed "s/^\s\+//")
-
-  #
-  # Create the VM first, because it includes the PVC
-  #
-  kubectl create -f $VMYAML
-
-  sleep "4.2s"
-
-  #
-  # Now populate the PV
-  #
-  tee receiver.yaml <<EOY
-apiVersion: v1
-kind: Pod
+  # Create job offlinevirtualmachine
+tee $VMYAML <<EOY
+apiVersion: kubevirt.io/v1alpha1
+kind: OfflineVirtualMachine
 metadata:
-  name: v2v-receiver-$PVCNAME
-  labels:
-    receiver-for: $PVCNAME
+  name: $VMNAME
 spec:
-  restartPolicy: Never
-  containers:
-  - name: v2v
-    image: quay.io/fabiand/v2v-pv-populator
-    volumeMounts:
-    - name: dst
-      mountPath: /dst
-  volumes:
-  - name: dst
-    persistentVolumeClaim:
-      claimName: $PVCNAME
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    receiver-for: $PVCNAME
-  name: v2v-receiver-$PVCNAME
-spec:
-  ports:
-  - port: 54321
-    protocol: TCP
-    targetPort: 54321
-  selector:
-    receiver-for: $PVCNAME
-  type: ClusterIP
+  template:
+    terminationGracePeriodSeconds: 0
+    domain:
+      cpu:
+        cores: $CORES
+      resources:
+        requests:
+          memory: $MEMORY$UNIT
+      devices:
+        disks:
+        - name: disk-1
+          disk:
+            bus: $BUS
+          volumeName: volume-1
+    volumes:
+      - name: volume-1
+        persistentVolumeClaim:
+          name: $PVCNAME
 EOY
-  kubectl create -f receiver.yaml
 
-  sleep "4.2s"
-
-  # Wait for the pod to come up and try to send the image
-  local N=30
-  while [[ $N -gt 0 ]]; do
-    echo "Trial $N to send data"
-    nc v2v-receiver-$PVCNAME 54321 <$DISKFILE && break
-    sleep 10
-    N=$(( $N - 1 ))
-  done
-  [[ $N = 0 ]] && die "Failed to send data" || echo "Data transmitted!"
-  kubectl delete -f receiver.yaml
+  # Create the VM
+  oc create -f $VMYAML
 }
 
 main
