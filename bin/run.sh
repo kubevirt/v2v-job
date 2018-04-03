@@ -70,6 +70,7 @@ rm -f output.txt
 
 # we support only one disk, it needs to be aligned with DNS-1123
 PVCNAME=$(echo $VM_NAME-disk-1 | sed -r 's/[_.]+/-/g')
+VMNAME=$(echo $SRC | sed -r 's/[_.]+/-/g')
 
 ENCODED_PASS=$(echo -n $PASS | base64)
 
@@ -145,7 +146,7 @@ objects:
 - kind: Job
   apiVersion: batch/v1 
   metadata:
-    name: v2v
+    name: v2v-$VMNAME
     namespace: default
   spec:
     backoffLimit: 1
