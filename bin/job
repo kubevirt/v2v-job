@@ -11,6 +11,7 @@ SRCTYPE=${2}
 SRC=${3}
 SRCURI=${4}
 SRCPASS=$(echo $SOURCE_PASSWORD)
+SRCOS=${5:-"Linux"}
 
 BASEDIR=$(readlink -f $(dirname $(readlink -f $0))/..)
 
@@ -35,7 +36,7 @@ main() {
   [[ "$SRCTYPE" = "libvirt" && -z "$SRCURI" ]] && die "Please provide valid uri"
   [[ "$SRCTYPE" = "libvirt" && "$SRC" =~ ^vpx && -z "$SRCPASS" ]] && die "Please provide password"
 
-  transformVM "$SRCTYPE" "$SRC" "$SRCURI" "$SRCPASS"
+  transformVM "$SRCTYPE" "$SRC" "$SRCURI" "$SRCPASS" "$SRCOS"
 }
 
 transformVM() {
@@ -44,6 +45,7 @@ transformVM() {
   local SRCURI="$3"
   local SRCPASS="$4"
   local WD="$(basename $SRC).d"
+  local SRCOS = "$5"
 
   echo "  Converting source: $SRC"
   mkdir -p $WD
@@ -81,10 +83,13 @@ transformVM() {
   BUS=$(xmllint --xpath "string(/domain/devices/disk/target/@bus)" $DOMXML)
 
   # Create job offlinevirtualmachine
+  if [[ "$SRCOS" = "Linux" ]]; then
 tee $VMYAML <<EOY
 apiVersion: kubevirt.io/v1alpha1
 kind: OfflineVirtualMachine
 metadata:
+  labels:
+    kubevirt.io/os: rhel7.4
   name: $VMNAME
 spec:
   template:
@@ -106,6 +111,63 @@ spec:
         persistentVolumeClaim:
           name: $PVCNAME
 EOY
+  else
+tee $VMYAML <<EOY
+apiVersion: kubevirt.io/v1alpha1
+kind: VirtualMachinePreset
+metadata:
+  name: windows-server-2016
+  selector:
+    matchLabels:
+      kubevirt.io/os: win2k16
+spec:
+  domain:
+    cpu:
+      cores: $CORES
+    resources:
+      requests:
+        memory: $MEMORY$UNIT
+    features:
+      acpi: {}
+      apic: {}
+      hyperv:
+        relaxed: {}
+        vapic: {}
+        spinlocks:
+          spinlocks: 8191
+    clock:
+      utc: {}
+      timer:
+        hpet:
+          present: false
+        pit:
+          tickPolicy: delay
+        rtc:
+          tickPolicy: catchup
+        hyperv: {}
+---
+apiVersion: kubevirt.io/v1alpha1
+kind: OfflineVirtualMachine
+metadata:
+  labels:
+    kubevirt.io/os: win2k16
+  name: $VMNAME
+spec:
+  template:
+    terminationGracePeriodSeconds: 0
+    domain:
+      devices:
+        disks:
+        - name: disk-1
+          disk:
+            bus: $BUS
+          volumeName: volume-1
+    volumes:
+      - name: volume-1
+        persistentVolumeClaim:
+          name: $PVCNAME
+EOY
+  fi
 
   # Create the VM
   oc create -f $VMYAML

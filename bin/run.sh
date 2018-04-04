@@ -8,6 +8,7 @@ VM_NAME=${1}
 USER=${2}
 PASS=${3}
 URI=${4}
+OS_TYPE=${5:-"Linux"}
 
 [[ "$VM_NAME" ]] || die "No vm name given"
 [[ "$USER" ]] || die "No username given"
@@ -97,6 +98,9 @@ parameters:
   value: "http://192.168.42.1/my.ova"
 - name: SOURCE_URI
   description: "(Optional) The URI to connect to the remote instance"
+- name: SOURCE_OS_TYPE
+  description: "(Optional) Operating system type (Linux or Windows)"
+  value: "Linux"
 
 objects:
 - apiVersion: v1
@@ -160,7 +164,8 @@ objects:
           args: ["/v2v-dst",
                  "\${SOURCE_TYPE}",
                  "\${SOURCE_NAME}",
-                 "\${SOURCE_URI}"]
+                 "\${SOURCE_URI}",
+                 "\${SOURCE_OS_TYPE}"]
           env:
           - name: "DEBUG"
             value: "1"
@@ -211,6 +216,6 @@ objects:
 EOY
 
 # create the job
-oc process --local -f template.yaml -p SOURCE_TYPE=libvirt -p SOURCE_NAME=$VM_NAME -p SOURCE_URI=vpx://$USER@$URI?no_verify=1 | oc create -f -
+oc process --local -f template.yaml -p SOURCE_TYPE=libvirt -p SOURCE_NAME=$VM_NAME -p SOURCE_URI=vpx://$USER@$URI?no_verify=1 -p SOURCE_OS_TYPE=$OS_TYPE | oc create -f -
 
 rm -f template.yaml
