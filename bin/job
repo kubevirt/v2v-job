@@ -20,22 +20,11 @@ main() {
   [[ "$DSTD" ]] || die "No destination given"
   [[ "$SRCTYPE" ]] || die "No source type given"
   [[ "$SRC" ]] || die "No source given"
-
-  if [[ "$SRC" = "example" ]]; then
-    curl -LO https://download.fedoraproject.org/pub/fedora/linux/releases/27/CloudImages/x86_64/images/Fedora-Cloud-Base-27-1.6.x86_64.raw.xz
-    xz -d Fedora-Cloud-Base-27-1.6.x86_64.raw.xz
-    SRC=Fedora-Cloud-Base-27-1.6.x86_64.raw
-  fi
-  if [[ "$SRC" =~ ^http ]]; then
-    curl -LO "$SRC"
-    SRC=$(basename "$SRC")
-  fi
-
-  [[ "$SRCTYPE" = "disk" ]] && SRC="$(readlink -f $SRC)"
   [[ "$SRCTYPE" = "libvirt" && -z "$SRCURI" ]] && die "Please provide valid uri"
   [[ "$SRCTYPE" = "libvirt" && "$SRC" =~ ^vpx && -z "$SRCPASS" ]] && die "Please provide password"
 
   transformVM "$SRCTYPE" "$SRC" "$SRCURI" "$SRCPASS"
+  createVM
 }
 
 transformVM() {
@@ -71,15 +60,17 @@ transformVM() {
   local VMYAML=${DOMXML%.xml}.yaml
 
   # we support only one disk, it needs to be aligned with DNS-1123
-  PVCNAME=$(echo $SRC-disk-1 | sed -r 's/[_.]+/-/g')
-  VMNAME=$(echo $SRC | sed -r 's/[_.]+/-/g')
+  export PVCNAME=$(echo $SRC-disk-1 | sed -r 's/[_.]+/-/g')
+  export VMNAME=$(echo $SRC | sed -r 's/[_.]+/-/g')
 
   # get resources from vm xml
-  CORES=$(xmllint --xpath "/domain/vcpu/text()" $DOMXML)
-  MEMORY=$(xmllint --xpath "/domain/memory/text()" $DOMXML)
-  UNIT=$(xmllint --xpath "string(/domain/memory/@unit)" $DOMXML)
-  BUS=$(xmllint --xpath "string(/domain/devices/disk/target/@bus)" $DOMXML)
+  export CORES=$(xmllint --xpath "/domain/vcpu/text()" $DOMXML)
+  export MEMORY=$(xmllint --xpath "/domain/memory/text()" $DOMXML)
+  export UNIT=$(xmllint --xpath "string(/domain/memory/@unit)" $DOMXML)
+  export BUS=$(xmllint --xpath "string(/domain/devices/disk/target/@bus)" $DOMXML)
+}
 
+createVM() {
   # Create job offlinevirtualmachine
 tee $VMYAML <<EOY
 apiVersion: kubevirt.io/v1alpha1
